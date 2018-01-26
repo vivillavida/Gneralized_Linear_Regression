@@ -1,0 +1,182 @@
+---
+title: "220B"
+author: "Xinyue Zhang"
+date: "3/7/2017"
+output: pdf_document
+---
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+suppressMessages(library(ggplot2))
+suppressMessages(library(plyr))
+suppressMessages(library(GGally))
+suppressMessages(library(grid))
+suppressMessages(library(gridExtra))
+suppressMessages(library(car))
+
+```
+
+```{r,cache=TRUE,warning=FALSE}
+seber <- read.csv("~/Documents/statistics/UCSB/220B/Project/Linear-Regression-Analysis-Seber.csv")
+attach(seber)
+# treat the following variables as factor
+NasalSpray<-as.factor(NasalSpray)
+Vitamin<-as.factor(Vitamin)
+Soy<-as.factor(Soy)
+Fruit<-as.factor(Fruit)
+Gender<-as.factor(Gender)
+City<-as.factor(City)
+# change the name of these factors
+NasalSpray<-revalue(NasalSpray, c("1"="spray", "2"="placebo"))
+Vitamin<-revalue(Vitamin, c("1"="vitamin", "2"="novitamin"))
+Soy<-revalue(Soy, c("1"="soy", "2"="nosoy"))
+Fruit<-revalue(Fruit, c("1"="fruit", "2"="nofruit"))
+Gender<-revalue(Gender, c("1"="male", "2"="female"))
+City<-revalue(City,c("1"="city1", "2"="city2","3"="city3","4"="city4"))
+sebernew<-data.frame(NasalSpray,Vitamin, Age, Height, Weight, Soy, Fruit, Gender, City, Days, NumInf)
+```
+
+```{r,cache=TRUE,warning=FALSE}
+rate<-NumInf/Days
+```
+
+
+### barplot
+```{r,cache=TRUE,warning=FALSE,fig.width=5.5,fig.height=4,fig.align='center'}
+p1<-ggplot(data=sebernew, aes(x=Vitamin)) +
+    geom_bar(width=0.5,fill="lightblue")
+p2<-ggplot(data=sebernew, aes(x=Fruit)) +
+    geom_bar(width=0.5,fill="lightblue")
+p3<-ggplot(data=sebernew, aes(x=Gender)) +
+    geom_bar(width=0.5,fill="lightblue")
+p4<-ggplot(data=sebernew, aes(x=Soy)) +
+    geom_bar(width=0.5,fill="lightblue")
+p5<-ggplot(data=sebernew, aes(x=City)) +
+    geom_bar(width=0.7,fill="lightblue")
+p6<-ggplot(data=sebernew, aes(x=NasalSpray)) +
+    geom_bar(width=0.5,fill="lightblue")
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  require(grid)
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+multiplot(p1,p2,p3,p4,p5,p6,cols=3)
+```
+
+
+```{r,cache=TRUE,echo=FALSE,warning=FALSE,fig.width=5,fig.height=4,fig.align='center'}
+# Mosaic plot
+mosaicplot(~NasalSpray+Vitamin+Fruit+Gender,color = TRUE,main = "Relationship between variables")
+```
+
+### check correlation
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+cor(sebernew[3:5])
+```
+
+
+```{r,cache=TRUE,echo=FALSE,warning=FALSE,fig.width=6,fig.height=5,fig.align='center'}
+# interaction
+par(mfrow=c(2,2))
+interaction.plot(Soy, Fruit,rate, cex=.5)
+interaction.plot(NasalSpray, Fruit,rate, cex=.5)
+interaction.plot(Soy, Vitamin,rate, cex=.5)
+interaction.plot(Vitamin, Fruit,rate, cex=.5)
+```
+
+### Check missing values
+```{r,warning=FALSE}
+any(is.na(sebernew))
+```
+
+### Model1
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+glm1 <- glm(NumInf~NasalSpray+Vitamin+Age+Height+Weight+Fruit+Soy+Gender+City,offset=log(Days), family = poisson, data=sebernew)
+formula(glm1)
+#summary(glm1)
+library(knitr)
+kable(summary(glm1)$coef, digits=3)
+```
+
+### Model2
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+mod2 <- glm(NumInf ~  NasalSpray+Vitamin+Age+Fruit+Soy+Gender, offset= log(Days), family = poisson, data = sebernew)
+formula(mod2)
+```
+
+### Model3
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+inter<- glm(NumInf~NasalSpray+Vitamin+Age+Fruit+Soy+Gender+NasalSpray:Fruit+Age:Fruit+Age:Soy+Vitamin:Age,offset=log(Days), family = poisson, data=sebernew)
+# anova(mod2,inter,test="Chi")
+formula(inter)
+```
+
+### Model4
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+mod4<-glm(NumInf~NasalSpray+Vitamin+Age+Fruit+Soy+Gender+NasalSpray:Fruit+Age:Fruit+Age:Soy,offset=log(Days), family = poisson, data=sebernew)
+library(knitr)
+kable(summary(mod4)$coef, digits=3)
+anova(model4,inter,test="Chi")
+```
+
+### partial residual plot
+
+```{r,cache=TRUE,echo=FALSE,warning=FALSE, fig.width=5,fig.height=4,fig.align='center'}
+pr2 <- residuals(mod4)+coef(mod4)[4]*sebernew$Age
+plot(sebernew$Age, pr2, xlab="Age",ylab="Partial residuals")
+abline(0,coef(mod4)[4])
+lines(lowess(sebernew$Age,pr2), col="red", lty=2)
+title("Partial residual plot for Age")
+```
+
+### Residuals plots
+```{r,cache=TRUE,echo=FALSE,warning=FALSE, fig.width=6,fig.height=5,fig.align='center'}
+par(mfrow=c(2,2))
+plot(residuals(mod4, type = "pearson"),main="Pearson residual plot")
+plot(residuals(mod4, type = "deviance"),main="Deviance residual plot")
+```
+
+### Check outliers and influential points
+```{r,cache=TRUE,echo=FALSE,warning=FALSE, fig.width=5,fig.height=4,fig.align='center'}
+# outlierTest(mod4)
+influencePlot(mod4)
+```
+
+### Model5
+```{r,cache=TRUE,echo=FALSE,warning=FALSE}
+mod5=update(mod4,subset=-c(6,85,115))
+influenceIndexPlot(mod4)
+# compare the fitted-value of the model with and without the influential points
+plot(mod4$fitted.values[-c(6,85,115)], mod5$fitted.values, main = "compare the fitted-value of the model with and without the three poins")
+abline(0,1)
+```
+
+
+
