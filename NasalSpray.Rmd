@@ -1,6 +1,5 @@
 ---
 title: "220B"
-author: "Xinyue Zhang"
 date: "3/7/2017"
 output: pdf_document
 ---
